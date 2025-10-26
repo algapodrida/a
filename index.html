@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#ffb347">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Plantilla Arco">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gestor de Hojas - Plantilla Arco</title>
+  <style>
+    :root{--orange:#ffb347;--muted:#f3f3f3;--border:#ddd}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:18px;background:#fff}
+    h1{font-size:18px;margin:0 0 12px}
+    .panel{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    label{font-size:13px}
+    input[type=number],input[type=text]{width:120px;padding:6px;border:1px solid var(--border);border-radius:6px}
+    button{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:whitesmoke;cursor:pointer}
+    button.primary{background:var(--orange);border-color:transparent}
+    .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px}
+    table{border-collapse:collapse;width:auto;min-width:450px;margin-right:20px}
+    th,td{border:1px solid var(--border);padding:6px;min-width:60px;text-align:right}
+    th.orange,td.orange{background:var(--orange);color:#000}
+    td.content{background:white;text-align:left}
+    select{width:100%;border:none;padding:4px;background:white}
+    .note{font-size:13px;color:#666;margin-top:8px}
+    .sheet-item{display:flex;gap:8px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+    .counter{font-size:13px;margin-top:6px;color:#333}
+  </style>
+</head>
+<body>
+<h1>Gestor de Hojas — Plantilla Arco</h1>
+<div id="app">
+  <div id="home">
+    <div class="panel">
+      <button id="btnCreate" class="primary">Crear nueva hoja</button>
+    </div>
+    <div id="sheetsList"></div>
+  </div>
+
+  <div id="creator" style="display:none">
+    <div class="panel">
+      <label>Nombre: <input id="sheetName" type="text" placeholder="Torneo 1"></label>
+      <label>Filas: <input id="rowsCount" type="number" min="1" max="200" value="8"></label>
+      <label>Plantillas horizontales: <input id="templateCount" type="number" min="1" max="5" value="1"></label>
+      <button id="createSheetBtn" class="primary">Crear</button>
+      <button id="cancelCreate">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="editor" style="display:none">
+    <div class="panel">
+      <div><strong id="currentSheetTitle"></strong></div>
+      <button id="backHome">Volver</button>
+      <button id="saveSheet">Guardar</button>
+    </div>
+    <div id="tableWrap" style="display:flex;flex-wrap:nowrap;"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'plantilla_arco_v3';
+let sheets = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+let current = null;
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function saveAll(){localStorage.setItem(STORAGE_KEY,JSON.stringify(sheets));}
+function renderHome(){
+  document.getElementById('home').style.display='block';
+  document.getElementById('creator').style.display='none';
+  document.getElementById('editor').style.display='none';
+  const list=document.getElementById('sheetsList');
+  list.innerHTML='';
+  if(!sheets.length){list.innerHTML='<div class="note">No hay hojas creadas.</div>';return;}
+  sheets.forEach(s=>{
+    const div=document.createElement('div');div.className='sheet-item';
+    div.innerHTML=`<strong>${s.name}</strong> (${s.rows} filas, ${s.templates} plantilla${s.templates>1?'s':''})`;
+    const open=document.createElement('button');open.textContent='Abrir';open.onclick=()=>{openSheet(s.id)};
+    div.appendChild(open);
+    list.appendChild(div);
+  });
+}
+function showCreator(){
+  document.getElementById('home').style.display='none';
+  document.getElementById('creator').style.display='block';
+}
+document.getElementById('btnCreate').onclick=showCreator;
+document.getElementById('cancelCreate').onclick=renderHome;
+document.getElementById('createSheetBtn').onclick=()=>{
+  const name=document.getElementById('sheetName').value||'Hoja sin nombre';
+  let rows=parseInt(document.getElementById('rowsCount').value)||8;
+  let templates=parseInt(document.getElementById('templateCount').value)||1;
+  const id=uid();
+  const s={id,name,rows,templates,data:Array.from({length:templates}).map(()=>Array.from({length:rows}).map(()=>({t1:0,t2:0}))),archers:Array.from({length:templates}).map(()=>''),created:Date.now()};
+  sheets.push(s);saveAll();current=JSON.parse(JSON.stringify(s));renderEditor();
+}
+function openSheet(id){const s=sheets.find(x=>x.id===id);if(!s)return;current=JSON.parse(JSON.stringify(s));renderEditor();}
+function renderEditor(){
+  document.getElementById('home').style.display='none';
+  document.getElementById('creator').style.display='none';
+  document.getElementById('editor').style.display='block';
+  document.getElementById('currentSheetTitle').textContent=current.name;
+  document.getElementById('tableWrap').innerHTML='';
+  for(let t=0;t<current.templates;t++){
+    const container=document.createElement('div');
+    const header=document.createElement('div');
+    header.innerHTML=`<label>ARQUER@: <input type="text" value="${current.archers[t]||''}" data-t="${t}"></label>`;
+    header.querySelector('input').oninput=(e)=>{current.archers[t]=e.target.value;};
+    container.appendChild(header);
+    const table=document.createElement('table');
+    const thead=document.createElement('thead');
+    const trh=document.createElement('tr');
+    ['#','1ª TIRADA','2ª TIRADA','TOTAL'].forEach((h,i)=>{const th=document.createElement('th');th.textContent=h;if(i===0||i===3)th.className='orange';trh.appendChild(th);});
+    thead.appendChild(trh);table.appendChild(thead);
+    const tbody=document.createElement('tbody');
+    for(let r=0;r<current.rows;r++){
+      const tr=document.createElement('tr');
+      const tdNum=document.createElement('td');tdNum.className='orange';tdNum.textContent=r+1;tr.appendChild(tdNum);
+      const tdT1=document.createElement('td');
+      const sel1=document.createElement('select');['0',5,8,10,11].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;sel1.appendChild(o);});
+      sel1.value=(current.data[t][r].t1!==undefined)?current.data[t][r].t1:0;
+      sel1.onchange=()=>{current.data[t][r].t1=parseInt(sel1.value)||0;updateRow(t,r);updateTotals(t);updateCounters(t);};
+      tdT1.appendChild(sel1);tr.appendChild(tdT1);
+      const tdT2=document.createElement('td');
+      const sel2=document.createElement('select');['0',5,8,10,11].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;sel2.appendChild(o);});
+      sel2.value=(current.data[t][r].t2!==undefined)?current.data[t][r].t2:0;
+      sel2.onchange=()=>{current.data[t][r].t2=parseInt(sel2.value)||0;updateRow(t,r);updateTotals(t);updateCounters(t);};
+      tdT2.appendChild(sel2);tr.appendChild(tdT2);
+      const tdTot=document.createElement('td');tdTot.className='orange';tdTot.textContent=computeTotal(current.data[t][r]);tr.appendChild(tdTot);
+      tbody.appendChild(tr);
+    }
+    // fila de suma total
+    const trSum=document.createElement('tr');
+    const tdLabel=document.createElement('td');tdLabel.colSpan=3;tdLabel.textContent='Suma total';tdLabel.style.textAlign='right';trSum.appendChild(tdLabel);
+    const tdSum=document.createElement('td');tdSum.className='orange';tdSum.id=`sum-${t}`;tdSum.textContent='0';trSum.appendChild(tdSum);
+    tbody.appendChild(trSum);
+
+    table.appendChild(tbody);
+    container.appendChild(table);
+
+    // contador de 10 y 11
+    const counter=document.createElement('div');
+    counter.className='counter';
+    counter.id=`counter-${t}`;
+    container.appendChild(counter);
+
+    document.getElementById('tableWrap').appendChild(container);
+    updateTotals(t);
+    updateCounters(t);
+  }
+}
+function computeTotal(row){return (Number(row.t1||0)+Number(row.t2||0));}
+function updateRow(t,r){
+  const table=document.getElementById('tableWrap').children[t].querySelector('table');
+  const tr=table.querySelectorAll('tbody tr')[r];
+  const cell=tr.children[3];
+  cell.textContent=computeTotal(current.data[t][r]);
+}
+function updateTotals(t){
+  const total=current.data[t].reduce((acc,row)=>acc+computeTotal(row),0);
+  const td=document.getElementById(`sum-${t}`);
+  if(td)td.textContent=total;
+}
+function updateCounters(t){
+  let count10=0,count11=0;
+  current.data[t].forEach(row=>{
+    if(row.t1===10)count10++;
+    if(row.t2===10)count10++;
+    if(row.t1===11)count11++;
+    if(row.t2===11)count11++;
+  });
+  const counter=document.getElementById(`counter-${t}`);
+  if(counter)counter.textContent=`Contador → 10: ${count10} | 11: ${count11}`;
+}
+document.getElementById('backHome').onclick=()=>{saveCurrent();renderHome();}
+function saveCurrent(){if(!current)return;const idx=sheets.findIndex(s=>s.id===current.id);if(idx>=0)sheets[idx]=current;else sheets.push(current);saveAll();}
+renderHome();
+</script>
+    if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(() => console.log('Service Worker registrado'))
+    .catch(err => console.warn('Error registrando Service Worker', err));
+}
+
+</body>
+</html>
