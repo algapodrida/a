@@ -22,13 +22,14 @@
     input[type=number],input[type=text]{width:120px;padding:6px;border:1px solid var(--border);border-radius:6px}
     button{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:whitesmoke;cursor:pointer}
     button.primary{background:var(--orange);border-color:transparent}
-    .table-wrap{overflow-x:auto;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;max-height:600px;-webkit-overflow-scrolling:touch}
+    .table-wrap{overflow-x:auto;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;max-height:600px;-webkit-overflow-scrolling:touch;position:relative}
     .template-container{margin-right:20px;position:relative;display:inline-block;vertical-align:top}
     .table-section{overflow:visible}
     table{border-collapse:collapse;width:auto;min-width:350px}
     th,td{border:1px solid var(--border);padding:6px;min-width:60px;text-align:right}
     th.orange,td.orange{background:var(--orange);color:#000}
     th.num-col,td.num-col{min-width:70px;max-width:70px;padding:4px 2px;font-size:11px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;word-break:break-word}
+    td.row-number{min-width:120px;max-width:180px;font-size:12px;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     td.content{background:white;text-align:left}
     select{width:100%;border:none;padding:4px;background:white}
     .note{font-size:13px;color:#666;margin-top:8px}
@@ -124,7 +125,15 @@ function renderEditor(){
     const header=document.createElement('div');
     header.className='archer-header';
     header.innerHTML=`<label>ARQUER@: <input type="text" value="${current.archers[t]||''}" data-t="${t}"></label>`;
-    header.querySelector('input').oninput=(e)=>{current.archers[t]=e.target.value;nameDisplay.textContent=e.target.value||'Sin nombre';};
+    header.querySelector('input').oninput=(e)=>{
+      current.archers[t]=e.target.value;
+      nameDisplay.textContent=e.target.value||'Sin nombre';
+      // Actualizar nombres en las filas
+      for(let r=0;r<current.rows;r++){
+        const cell=document.getElementById(`row-num-${t}-${r}`);
+        if(cell)cell.innerHTML=`<strong>${r+1}</strong> <span style="font-size:10px;color:#333">${e.target.value||''}</span>`;
+      }
+    };
     nameCol.appendChild(header);
     
     const nameDisplay=document.createElement('div');
@@ -146,7 +155,11 @@ function renderEditor(){
     const tbody=document.createElement('tbody');
     for(let r=0;r<current.rows;r++){
       const tr=document.createElement('tr');
-      const tdNum=document.createElement('td');tdNum.className='orange';tdNum.textContent=r+1;tr.appendChild(tdNum);
+      const tdNum=document.createElement('td');
+      tdNum.className='orange row-number';
+      tdNum.innerHTML=`<strong>${r+1}</strong> <span style="font-size:10px;color:#333">${current.archers[t]||''}</span>`;
+      tdNum.id=`row-num-${t}-${r}`;
+      tr.appendChild(tdNum);
       const tdT1=document.createElement('td');
       const sel1=document.createElement('select');['-','0',5,8,10,11].forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;sel1.appendChild(o);});
       sel1.value=(current.data[t][r].t1!==undefined)?current.data[t][r].t1:'-';
